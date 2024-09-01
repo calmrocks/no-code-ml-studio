@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CloudFormation template to create an API Gateway to invoke a SageMaker endpoint.
+
+Parameters:
+  SageMakerEndpointName:
+    Type: String
+    Description: Name of the SageMaker endpoint to be exposed via API Gateway
+
+Resources:
+  # IAM Role for API Gateway to invoke SageMaker
+  ApiGatewaySageMakerRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'InvokeSageMakerEndpointPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'sagemaker:InvokeEndpoint'
+                Resource:
+                  - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/${SageMakerEndpointName}'
+
+  # API Gateway Rest API
+  ApiGatewayRestApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: 'SageMakerApi'
+      Description: 'API Gateway to invoke the SageMaker endpoint'
+
+  # API Gateway Resource
+  ApiGatewayResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: 'invoke'
+      RestApiId: !Ref ApiGatewayRestApi
+
+  # API Gateway POST Method
+  ApiGatewayMethodPost:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      AuthorizationType: 'NONE'
+      HttpMethod: 'POST'
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        Type: 'AWS_PROXY'
+        IntegrationHttpMethod: 'POST'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:sagemaker:action/InvokeEndpoint'
+        Credentials: !GetAtt ApiGatewaySageMakerRole.Arn
+        RequestParameters:
+          integration.request.path.endpointName: "method.request.path.endpointName"
+        RequestTemplates:
+          application/json: |
+            {
+              "EndpointName": "${SageMakerEndpointName}",
+              "Body": $input.body
+            }
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+
+  # API Gateway Deployment
+  ApiGatewayDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: 'prod'
+    DependsOn: ApiGatewayMethodPost
+
+  # API Gateway API Key
+  ApiGatewayApiKey:
+    Type: 'AWS::ApiGateway::ApiKey'
+    Properties:
+      Name: 'SageMakerApiKey'
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGatewayRestApi
+          StageName: !Ref ApiGatewayDeployment
+
+  # API Gateway Usage Plan
+  ApiGatewayUsagePlan:
+    Type: 'AWS::ApiGateway::UsagePlan'
+    Properties:
+      UsagePlanName: 'SageMakerApiUsagePlan'
+      ApiStages:
+        - ApiId: !Ref ApiGatewayRestApi
+          Stage: !Ref ApiGatewayDeployment
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 50
+
+  # Attach API Key to Usage Plan
+  ApiGatewayUsagePlanKey:
+    Type: 'AWS::ApiGateway::UsagePlanKey'
+    Properties:
+      KeyId: !Ref ApiGatewayApiKey
+      KeyType: 'API_KEY'
+      UsagePlanId: !Ref ApiGatewayUsagePlan
+
+Outputs:
+  ApiGatewayUrl:
+    Description: "URL of the API Gateway"
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod/invoke"
+    Export:
+      Name: ApiGatewayUrl
+
+  ApiGatewayApiKeyArn:
+    Description: "ARN of the API Key"
+    Value: !Ref ApiGatewayApiKey
+    Export:
+      Name: ApiGatewayApiKeyArn

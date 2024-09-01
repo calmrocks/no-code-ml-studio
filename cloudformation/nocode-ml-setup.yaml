@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for No-Code ML Studio'
+
+Resources:
+  MLDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'nocode-ml-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  S3BucketName:
+    Description: 'The S3 bucket to use for storing datasets and outputs'
+    Value: !Ref MLDataBucket
