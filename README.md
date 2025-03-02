@@ -70,6 +70,12 @@ The Bank Marketing Classification example demonstrates how to train, deploy, and
 
 For step-by-step instructions on running this example, please refer to the [Bank Marketing Classification Tutorial](tutorials/bank-marketing-classification.md).
 
+### A Competitive Intelligence Knowledge Base with AWS Bedrock
+
+In today's rapidly evolving business landscape, staying informed about your competitors, market trends, and industry developments is crucial for strategic decision-making. In this tutorial, we'll use AWS Bedrock to create "MarketPulse" \- a knowledge base that continuously crawls the web to gather competitive intelligence for your business.
+
+For step-by-step instructions, please refer to the [Tutorial](tutorials/competitive-intelligence-knowledge%20-base.md).
+
 ## Conclusion
 
 This guide provides a starting point for deploying and using machine learning models on AWS with No-Code ML Studio. Refer to the individual tutorials for more detailed steps and explore additional examples as they become available.
